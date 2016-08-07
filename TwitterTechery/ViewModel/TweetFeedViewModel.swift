@@ -9,12 +9,14 @@
 import UIKit
 import ReactiveCocoa
 import Result
+import CoreData
 
 class TweetFeedViewModel
 {
     let twitterFeedManager: TwitterFeedManager
     var tweetFeed: MutableProperty<[TweetViewModel]>
-
+    var posts = [NSManagedObject]()
+    
     init()
     {
         twitterFeedManager = TwitterFeedManager()
@@ -52,5 +54,11 @@ class TweetFeedViewModel
         }
 
         tweetFeed.value = tweetArray
+    }
+
+    
+    func wakeUpOldPosts()
+    {
+        posts = CoreDataManager.sharedInstance.getAllSavedPost()
     }
 }

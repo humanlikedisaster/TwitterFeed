@@ -8,7 +8,6 @@
 
 import UIKit
 import Social
-import CoreData
 import Accounts
 import ReactiveCocoa
 import Alamofire
@@ -16,9 +15,9 @@ import Gloss
 
 class TwitterFeedManager: NSObject {
     var sinceId: [Int]!
-    var maxId: Int
+    var currentSinceId: Int = 0
+    var maxId: Int = 0
     weak var tweetFeedViewModel: TweetFeedViewModel?
-    var posts = [NSManagedObject]()
 
     private let imageQueue = dispatch_queue_create(
         "TwitterTechery.Image.Queu", DISPATCH_QUEUE_SERIAL)
@@ -43,8 +42,13 @@ class TwitterFeedManager: NSObject {
         if TwitterAccountManager.sharedInstance.logined.value
         {
             let url = NSURL(string: "https://api.twitter.com/1.1/statuses/home_timeline.json")
-            let parameters : NSDictionary = ["count": "20"]
-            let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters as [NSObject : AnyObject])
+            var parameters : [String: AnyObject] = ["count": "20"]
+            if currentSinceId > 0
+            {
+                parameters["since_id"] = String(currentSinceId + 1)
+            }
+
+            let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters)
             twitterRequest.account = TwitterAccountManager.sharedInstance.twitterAccount
             performTwitterRequest(twitterRequest)
         }
@@ -76,7 +80,7 @@ class TwitterFeedManager: NSObject {
                 {
                     do
                     {
-                        if let postFeed = try NSJSONSerialization.JSONObjectWithData(response, options: .MutableContainers) as? NSArray
+                        if let postFeed = try NSJSONSerialization.JSONObjectWithData(response, options: .MutableContainers) as? [[String: AnyObject]]
                         {
                             self.updatePostFeed(postFeed)
                         }
@@ -117,29 +121,26 @@ class TwitterFeedManager: NSObject {
         }
     }
 
-    func updatePostFeed(feed: NSArray!)
+    func updatePostFeed(feed: [[String: AnyObject]])
     {
-        let lastTweet = feed.lastObject as! NSDictionary
-        let firstTweet = feed.firstObject as! NSDictionary
-        if lastTweet["id"]!.integerValue < self.maxId
+        if let lastTweetId = feed.last?["id_str"]?.integerValue where lastTweetId < self.maxId
         {
-            self.maxId = lastTweet["id"] as! Int
+            maxId = lastTweetId
         }
-        self.sinceId.append(firstTweet["id"] as! Int)
+        
+        if let firstTweetId = feed.first?["id_str"]?.integerValue where firstTweetId > currentSinceId
+        {
+            currentSinceId = firstTweetId
+        }
 
         var tweetArray: [TweetViewModel] = []
 
         for tweet in feed
         {
-            let entity = TweetEntity(json: tweet as! JSON)
+            let entity = TweetEntity(json: tweet)
             let tweet = TweetViewModel(entity: entity!, manager: self)
             tweetArray.append(tweet)
         }
         tweetFeedViewModel?.syncTweetsModel(tweetArray)
-    }
-
-    func wakeUpOldPosts()
-    {
-        posts = CoreDataManager.sharedInstance.getAllSavedPost()
     }
 }
