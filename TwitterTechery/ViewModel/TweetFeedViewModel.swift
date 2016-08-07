@@ -8,6 +8,7 @@
 
 import UIKit
 import ReactiveCocoa
+import Result
 
 class TweetFeedViewModel
 {
@@ -21,22 +22,35 @@ class TweetFeedViewModel
         twitterFeedManager.tweetFeedViewModel = self
     }
 
+    func getLastHomeFeed()
+    {
+        twitterFeedManager.getLastHomeFeed()
+    }
+
+    func fetchOldHomeFeed()
+    {
+        twitterFeedManager.getOldHomeFeed()
+    }
+
     func syncTweetsModel(tweets:[TweetViewModel])
     {
+        var tweetArray = tweetFeed.value
+        
         for tweet in tweets
         {
-            let tweetArray = tweetFeed.value
-            var newArray = tweetArray.map({$0.entity.id == tweet.entity.id ? tweet : $0})
-
-            if newArray == tweetArray && !newArray.contains(tweet)
+            if !tweetArray.contains(tweet)
             {
-                newArray.append(tweet)
+                tweetArray.append(tweet)
+                tweet.loadImage()
             }
-
-            if newArray != tweetArray
+            else
             {
-                tweetFeed.value = newArray
+                tweet.previewImage = tweetArray[tweetArray.indexOf(tweet)!].previewImage
+                tweet.previewImageSignalProducer = tweetArray[tweetArray.indexOf(tweet)!].previewImageSignalProducer
+                tweetArray[tweetArray.indexOf(tweet)!] = tweet
             }
         }
+
+        tweetFeed.value = tweetArray
     }
 }

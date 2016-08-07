@@ -40,28 +40,59 @@ class TwitterFeedManager: NSObject {
 
     func getLastHomeFeed ()
     {
-        let url = NSURL(string: "https://api.twitter.com/1.1/statuses/home_timeline.json")
-        let parameters : NSDictionary = ["count": "20"]
-        let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters as [NSObject : AnyObject])
-        twitterRequest.account = TwitterAccountManager.sharedInstance.twitterAccount
+        if TwitterAccountManager.sharedInstance.logined.value
+        {
+            let url = NSURL(string: "https://api.twitter.com/1.1/statuses/home_timeline.json")
+            let parameters : NSDictionary = ["count": "20"]
+            let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters as [NSObject : AnyObject])
+            twitterRequest.account = TwitterAccountManager.sharedInstance.twitterAccount
+            performTwitterRequest(twitterRequest)
+        }
+    }
+
+    func getOldHomeFeed ()
+    {
+        if TwitterAccountManager.sharedInstance.logined.value
+        {
+            let url = NSURL(string: "https://api.twitter.com/1.1/statuses/home_timeline.json")
+            let parameters : NSDictionary = ["count": "20", "max_id": String(maxId - 1)]
+            let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters as [NSObject : AnyObject])
+            twitterRequest.account = TwitterAccountManager.sharedInstance.twitterAccount
+            performTwitterRequest(twitterRequest)
+        }
+    }
+
+    private func performTwitterRequest(twitterRequest: SLRequest)
+    {
         twitterRequest.performRequestWithHandler(
-            { (responseData : NSData?, urlResponse : NSHTTPURLResponse?, error : NSError?) -> Void in
-                if error != nil
+        { (responseData : NSData?, urlResponse : NSHTTPURLResponse?, error : NSError?) -> Void in
+            if error != nil
+            {
+                print("Error with network: " + error!.description)
+            }
+            else
+            {
+                if let response = responseData
                 {
-                }
-                else
-                {
-                    if let response = responseData
+                    do
                     {
-                    var postFeed = NSArray()
-                        do
+                        if let postFeed = try NSJSONSerialization.JSONObjectWithData(response, options: .MutableContainers) as? NSArray
                         {
-                            postFeed = try! NSJSONSerialization.JSONObjectWithData(response, options: .MutableContainers) as! NSArray
                             self.updatePostFeed(postFeed)
                         }
+                        else
+                        {
+                            let errorDict = NSString(data: response, encoding: NSUTF8StringEncoding)
+                            print(errorDict)
+                        }
+                    }
+                    catch _
+                    {
+                        print("Error with parse.")
                     }
                 }
-            })
+            }
+        })
     }
 
     func requestImage(url: String) -> SignalProducer<UIImage?, NSError>
@@ -102,7 +133,6 @@ class TwitterFeedManager: NSObject {
         {
             let entity = TweetEntity(json: tweet as! JSON)
             let tweet = TweetViewModel(entity: entity!, manager: self)
-            tweet.loadImage()
             tweetArray.append(tweet)
         }
         tweetFeedViewModel?.syncTweetsModel(tweetArray)

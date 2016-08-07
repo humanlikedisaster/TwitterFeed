@@ -24,10 +24,19 @@ class TwitterViewController: UITableViewController {
         tableView.rowHeight = UITableViewAutomaticDimension
         tableView.estimatedRowHeight = 100
 
+        refreshControl = UIRefreshControl()
+        refreshControl?.backgroundColor = UIColor.blueColor()
+        refreshControl?.tintColor = UIColor.whiteColor()
+        refreshControl?.addTarget(self, action: #selector(TwitterViewController.updateNew(_:)), forControlEvents: .ValueChanged)
+
         self.twitterViewModel.tweetFeed.signal.observeOn(UIScheduler())
             .observeNext( {
                 (tweetFeed) in
                 self.tableView.reloadData()
+                dispatch_async(dispatch_get_main_queue(),
+                {
+                    self.refreshControl?.endRefreshing()
+                })
             })
         
         // Do any additional setup after loading the view, typically from a nib.
@@ -35,7 +44,7 @@ class TwitterViewController: UITableViewController {
 
     override func viewDidAppear(animated: Bool)
     {
-        self.tableView.reloadData()
+        tableView.reloadData()
     }
 
     override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int
@@ -62,6 +71,25 @@ class TwitterViewController: UITableViewController {
 
         cell.setViewModel(viewModel)
         return cell
+    }
+
+    override func scrollViewDidEndDecelerating(scrollView: UIScrollView)
+    {
+        let endScrolling = scrollView.contentOffset.y + scrollView.frame.size.height
+        if endScrolling >= scrollView.contentSize.height
+        {
+            fetchOld()
+        }
+    }
+
+    func updateNew(sender: AnyObject)
+    {
+        twitterViewModel.getLastHomeFeed()
+    }
+
+    func fetchOld()
+    {
+        twitterViewModel.fetchOldHomeFeed()
     }
 }
 

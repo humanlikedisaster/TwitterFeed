@@ -53,13 +53,12 @@ public struct TweetEntity: Decodable {
 
 func == (left: TweetEntity, right: TweetEntity) -> Bool
 {
-    return (left.id == right.id) &&
-        (left.userName == right.userName) &&
-        (left.userScreenName == right.userScreenName) &&
-        (left.favoriteCount == right.favoriteCount) &&
-        (left.retweetCount == right.retweetCount) &&
-        (left.createdAt == right.createdAt) &&
-        (left.text == right.text)
+    return (left.id == right.id)
+}
+
+func == (left: TweetViewModel, right: TweetViewModel) -> Bool
+{
+    return (left.entity == right.entity)
 }
 
 class TweetViewModel: NSObject  {
