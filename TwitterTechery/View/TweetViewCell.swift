@@ -7,9 +7,9 @@
 //
 
 import UIKit
+import ReactiveCocoa
 
 class TweetViewCell: UITableViewCell {
-
 
     @IBOutlet weak var userNameLabel: UILabel!
     @IBOutlet weak var userScreenNameLabel: UILabel!
@@ -17,6 +17,7 @@ class TweetViewCell: UITableViewCell {
     @IBOutlet weak var followLabel: UILabel!
     @IBOutlet weak var tweetTextLabel: UILabel!
     @IBOutlet weak var previewImageView: UIImageView!
+    @IBOutlet weak var aspectRationContstraint: NSLayoutConstraint!
 
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -27,16 +28,18 @@ class TweetViewCell: UITableViewCell {
     {
         userNameLabel.text = viewModel.entity.userName
         userScreenNameLabel.text = "@" + viewModel.entity.userScreenName
-        retweetLabel.text = String(viewModel.entity.retweetCount)
-        followLabel.text = String(viewModel.entity.favoriteCount)
+        retweetLabel.text = "Retweets: " + String(viewModel.entity.retweetCount)
+        followLabel.text = "Follow: " + String(viewModel.entity.favoriteCount)
         tweetTextLabel.text = viewModel.entity.text
-        viewModel.getPreviewImage()
-                    .takeUntil(self.racutil_prepareForReuseProducer)
-                    .on(next:
-                        {
-                            self.previewImageView.image = $0
-                        })
-                    .start()
+        self.previewImageView.image = viewModel.previewImage
+        if let image = previewImageView.image
+        {
+            let allWidth = UIScreen.mainScreen().bounds.size.width
+            let ratio = allWidth / image.size.width
+            let heightDiffers = allWidth - image.size.height * ratio
+            aspectRationContstraint.constant = heightDiffers
+        }
+
     }
 
     override func setSelected(selected: Bool, animated: Bool) {

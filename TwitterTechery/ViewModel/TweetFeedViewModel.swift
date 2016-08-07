@@ -9,18 +9,15 @@
 import UIKit
 import ReactiveCocoa
 
-class TweetFeedViewModel: NSObject
+class TweetFeedViewModel
 {
     let twitterFeedManager: TwitterFeedManager
     var tweetFeed: MutableProperty<[TweetViewModel]>
 
-    override init()
+    init()
     {
         twitterFeedManager = TwitterFeedManager()
         tweetFeed = MutableProperty([])
-
-        super.init()
-
         twitterFeedManager.tweetFeedViewModel = self
     }
 

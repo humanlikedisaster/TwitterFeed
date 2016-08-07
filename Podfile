@@ -6,6 +6,7 @@ target 'TwitterTechery' do
 pod 'MagicalRecord'
 pod 'ReactiveCocoa'
 pod 'Alamofire'
+pod 'Gloss'
 
 end
 

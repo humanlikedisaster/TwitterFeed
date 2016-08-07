@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import ReactiveCocoa
 
 class TwitterViewController: UITableViewController {
     let twitterViewModel: TweetFeedViewModel
@@ -23,14 +24,11 @@ class TwitterViewController: UITableViewController {
         tableView.rowHeight = UITableViewAutomaticDimension
         tableView.estimatedRowHeight = 100
 
-        self.twitterViewModel.tweetFeed.signal.observeNext(
-        {
-            (tweetFeed) in
-            dispatch_async(dispatch_get_main_queue(),
-            {
+        self.twitterViewModel.tweetFeed.signal.observeOn(UIScheduler())
+            .observeNext( {
+                (tweetFeed) in
                 self.tableView.reloadData()
             })
-        })
         
         // Do any additional setup after loading the view, typically from a nib.
     }
@@ -48,7 +46,21 @@ class TwitterViewController: UITableViewController {
     override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell
     {
         let cell = tableView.dequeueReusableCellWithIdentifier("TweetViewCell") as! TweetViewCell
-        cell.setViewModel(twitterViewModel.tweetFeed.value[indexPath.row])
+        let viewModel = twitterViewModel.tweetFeed.value[indexPath.row]
+        viewModel.getPreviewImage()
+            .takeUntil(cell.racutil_prepareForReuseProducer)
+            .on( next:
+            { (image) in
+                if let indexPathCell = tableView.indexPathForCell(cell) where
+                    nil != image
+                {
+                    tableView.beginUpdates()
+                    tableView.reloadRowsAtIndexPaths([indexPathCell], withRowAnimation: .Automatic)
+                    tableView.endUpdates()
+                }
+            }).start()
+
+        cell.setViewModel(viewModel)
         return cell
     }
 }

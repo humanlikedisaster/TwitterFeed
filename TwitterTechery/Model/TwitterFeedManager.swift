@@ -12,6 +12,7 @@ import CoreData
 import Accounts
 import ReactiveCocoa
 import Alamofire
+import Gloss
 
 class TwitterFeedManager: NSObject {
     var sinceId: [Int]!
@@ -85,10 +86,10 @@ class TwitterFeedManager: NSObject {
         }
     }
 
-    func updatePostFeed(Feed: NSArray!)
+    func updatePostFeed(feed: NSArray!)
     {
-        let lastTweet = Feed.lastObject as! NSDictionary
-        let firstTweet = Feed.firstObject as! NSDictionary
+        let lastTweet = feed.lastObject as! NSDictionary
+        let firstTweet = feed.firstObject as! NSDictionary
         if lastTweet["id"]!.integerValue < self.maxId
         {
             self.maxId = lastTweet["id"] as! Int
@@ -97,20 +98,11 @@ class TwitterFeedManager: NSObject {
 
         var tweetArray: [TweetViewModel] = []
 
-        for Tweet in Feed as! [NSDictionary]
+        for tweet in feed
         {
-            let UserInfo = Tweet["user"]! as! NSDictionary
-
-            let id = Tweet["id_str"] as! String
-            let text = Tweet["text"] as! String
-            let userScreenName = UserInfo["screen_name"] as! String
-            let userName = UserInfo["name"] as! String
-            let favoriteCount =  Tweet["favorite_count"] as! Int
-            let retweetCount = Tweet["retweet_count"] as! Int
-            let createdAt = Tweet["created_at"] as! String
-            let imageURL = UserInfo["profile_image_url_https"] as! String
-            let entity = TweetEntity(id: id, userName: userName, userScreenName: userScreenName, favoriteCount: favoriteCount, retweetCount: retweetCount, createdAt: createdAt, text: text, previewImage: imageURL)
-            let tweet = TweetViewModel(entity: entity, manager: self)
+            let entity = TweetEntity(json: tweet as! JSON)
+            let tweet = TweetViewModel(entity: entity!, manager: self)
+            tweet.loadImage()
             tweetArray.append(tweet)
         }
         tweetFeedViewModel?.syncTweetsModel(tweetArray)

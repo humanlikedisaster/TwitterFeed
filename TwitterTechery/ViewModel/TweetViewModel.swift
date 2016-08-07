@@ -8,27 +8,46 @@
 
 import UIKit
 import ReactiveCocoa
+import Gloss
 
-public struct TweetEntity {
-    var id: String
-    var userName: String
-    var userScreenName: String
-    var favoriteCount: Int
-    var retweetCount: Int
-    var createdAt: String
-    var text: String
-    var previewImageURL: String
+public struct TweetEntity: Decodable {
+    let id: String
+    let userName: String
+    let userScreenName: String
+    let favoriteCount: Int
+    let retweetCount: Int
+    let createdAt: String
+    let text: String
+    let previewImageURL: String?
 
-    init(id: String, userName: String, userScreenName: String, favoriteCount: Int, retweetCount: Int, createdAt: String, text: String, previewImage: String)
-    {
-        self.id = id
+    public init?(json: JSON) {
+        self.id = ("id_str" <~~ json)!
+        self.text = ("text" <~~ json)!
+        self.favoriteCount = ("favorite_count" <~~ json)!
+        self.retweetCount = ("retweet_count" <~~ json)!
+        self.createdAt = ("created_at" <~~ json)!
+
+        guard let user: JSON = "user" <~~ json,
+            entities: JSON = "entities" <~~ json
+            else {return nil}
+
+        guard let userScreenName: String = "screen_name" <~~ user,
+            userName: String = "name" <~~ user
+            else { return nil }
+
+        let media: [JSON]? = "media" <~~ entities
+        if let mediaJSON = media?.first
+        {
+            let media_url_https: String? = "media_url_https" <~~ mediaJSON
+            self.previewImageURL = media_url_https
+        }
+        else
+        {
+            self.previewImageURL = nil
+        }
+
         self.userName = userName
         self.userScreenName = userScreenName
-        self.favoriteCount = favoriteCount
-        self.retweetCount = retweetCount
-        self.createdAt = createdAt
-        self.text = text
-        self.previewImageURL = previewImage
     }
 }
 
@@ -47,6 +66,7 @@ class TweetViewModel: NSObject  {
     var entity: TweetEntity
     unowned var manager: TwitterFeedManager
     var previewImage: UIImage?
+    var previewImageSignalProducer: SignalProducer<UIImage?, NSError>?
 
     init(entity: TweetEntity, manager: TwitterFeedManager)
     {
@@ -54,20 +74,39 @@ class TweetViewModel: NSObject  {
         self.manager = manager
     }
 
-    func getPreviewImage() -> SignalProducer<UIImage?, NSError> {
-        if let previewImage = self.previewImage {
-            return SignalProducer(value: previewImage).observeOn(UIScheduler())
-        }
-        else {
-            let imageProducer = manager.requestImage(entity.previewImageURL)
-                .takeUntil(self.racutil_willDeallocProducer)
-                .on(next: { self.previewImage = $0 })
-                .map { $0 as UIImage? }
-                .flatMapError { _ in SignalProducer<UIImage?, NSError>(value: nil) }
+    func loadImage()
+    {
+        if let previewImageURL = entity.previewImageURL
+        {
+            self.previewImageSignalProducer = manager.requestImage(previewImageURL)
+                        .on(next:
+                        {
+                            self.previewImage = $0
+                        })
+                        .map { $0 as UIImage? }
+                        .flatMapError { _ in SignalProducer<UIImage?, NSError>(value: nil) }
 
-            return SignalProducer(value: nil)
-                .concat(imageProducer)
-                .observeOn(UIScheduler())
+             self.previewImageSignalProducer!.start()
+        }
+    }
+
+    func getPreviewImage() -> SignalProducer<UIImage?, NSError> {
+        if nil != entity.previewImageURL
+        {
+            if let previewImage = self.previewImage {
+                return SignalProducer(value: previewImage).observeOn(UIScheduler())
+            }
+            else {
+                let signalProducer = SignalProducer(value: nil)
+                    .concat(self.previewImageSignalProducer!)
+                    .observeOn(UIScheduler())
+
+                return signalProducer
+            }
+        }
+        else
+        {
+            return SignalProducer(value: nil).observeOn(UIScheduler())
         }
     }
 }
