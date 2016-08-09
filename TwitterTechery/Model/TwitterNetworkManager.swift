@@ -11,13 +11,12 @@ import Social
 import Accounts
 import ReactiveCocoa
 import Alamofire
-import Gloss
+import Result
 
-class TwitterFeedManager: NSObject {
+class TwitterNetworkManager: NSObject {
     var sinceId: [Int]!
     var currentSinceId: Int = 0
     var maxId: Int = 0
-    weak var tweetFeedViewModel: TweetFeedViewModel?
 
     private let imageQueue = dispatch_queue_create(
         "TwitterTechery.Image.Queu", DISPATCH_QUEUE_SERIAL)
@@ -27,17 +26,9 @@ class TwitterFeedManager: NSObject {
         self.sinceId = [];
         self.maxId = Int.max
         super.init()
-
-        TwitterAccountManager.sharedInstance.logined.signal.observeNext
-        { (logined) in
-            if logined
-            {
-                self.getLastHomeFeed()
-            }
-        }
     }
 
-    func getLastHomeFeed ()
+    func getLastHomeFeed () -> SignalProducer<[[String: AnyObject]]?, NoError>
     {
         if TwitterAccountManager.sharedInstance.logined.value
         {
@@ -50,11 +41,15 @@ class TwitterFeedManager: NSObject {
 
             let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters)
             twitterRequest.account = TwitterAccountManager.sharedInstance.twitterAccount
-            performTwitterRequest(twitterRequest)
+            return performTwitterRequest(twitterRequest)
+        }
+        else
+        {
+            return SignalProducer.init(value: nil)
         }
     }
 
-    func getOldHomeFeed ()
+    func getOldHomeFeed () -> SignalProducer<[[String: AnyObject]]?, NoError>
     {
         if TwitterAccountManager.sharedInstance.logined.value
         {
@@ -62,41 +57,55 @@ class TwitterFeedManager: NSObject {
             let parameters : NSDictionary = ["count": "20", "max_id": String(maxId - 1)]
             let twitterRequest : SLRequest = SLRequest(forServiceType: SLServiceTypeTwitter, requestMethod: .GET, URL: url, parameters: parameters as [NSObject : AnyObject])
             twitterRequest.account = TwitterAccountManager.sharedInstance.twitterAccount
-            performTwitterRequest(twitterRequest)
+            return  performTwitterRequest(twitterRequest)
+        }
+        else
+        {
+            return SignalProducer.init(value: nil)
         }
     }
 
-    private func performTwitterRequest(twitterRequest: SLRequest)
+    private func performTwitterRequest(twitterRequest: SLRequest) -> SignalProducer<[[String: AnyObject]]?, NoError>
     {
-        twitterRequest.performRequestWithHandler(
-        { (responseData : NSData?, urlResponse : NSHTTPURLResponse?, error : NSError?) -> Void in
-            if error != nil
-            {
-                print("Error with network: " + error!.description)
-            }
-            else
-            {
-                if let response = responseData
+        return SignalProducer { observer, disposable in
+            twitterRequest.performRequestWithHandler(
+            { (responseData : NSData?, urlResponse : NSHTTPURLResponse?, error : NSError?) -> Void in
+                if error != nil
                 {
-                    do
+                    print("Error with network: " + error!.description)
+                    observer.sendNext(nil)
+                    observer.sendCompleted()
+                }
+                else
+                {
+                    if let response = responseData
                     {
-                        if let postFeed = try NSJSONSerialization.JSONObjectWithData(response, options: .MutableContainers) as? [[String: AnyObject]]
+                        do
                         {
-                            self.updatePostFeed(postFeed)
+                            if let postFeed = try NSJSONSerialization.JSONObjectWithData(response, options: .MutableContainers) as? [[String: AnyObject]]
+                            {
+                                self.updateRangeFromFeed(postFeed)
+                                observer.sendNext(postFeed)
+                                observer.sendCompleted()
+                            }
+                            else
+                            {
+                                let errorDict = NSString(data: response, encoding: NSUTF8StringEncoding)
+                                print(errorDict)
+                                observer.sendNext(nil)
+                                observer.sendCompleted()
+                            }
                         }
-                        else
+                        catch _
                         {
-                            let errorDict = NSString(data: response, encoding: NSUTF8StringEncoding)
-                            print(errorDict)
+                            print("Error with parse.")
+                            observer.sendNext(nil)
+                            observer.sendCompleted()
                         }
-                    }
-                    catch _
-                    {
-                        print("Error with parse.")
                     }
                 }
-            }
-        })
+            })
+        }
     }
 
     func requestImage(url: String) -> SignalProducer<UIImage?, NSError>
@@ -121,7 +130,7 @@ class TwitterFeedManager: NSObject {
         }
     }
 
-    func updatePostFeed(feed: [[String: AnyObject]])
+    func updateRangeFromFeed(feed: [[String: AnyObject]])
     {
         if let lastTweetId = feed.last?["id_str"]?.integerValue where lastTweetId < self.maxId
         {
@@ -132,15 +141,5 @@ class TwitterFeedManager: NSObject {
         {
             currentSinceId = firstTweetId
         }
-
-        var tweetArray: [TweetViewModel] = []
-
-        for tweet in feed
-        {
-            let entity = TweetEntity(json: tweet)
-            let tweet = TweetViewModel(entity: entity!, manager: self)
-            tweetArray.append(tweet)
-        }
-        tweetFeedViewModel?.syncTweetsModel(tweetArray)
     }
 }

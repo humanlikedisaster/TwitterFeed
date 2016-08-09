@@ -10,7 +10,7 @@ import UIKit
 import ReactiveCocoa
 import Gloss
 
-public struct TweetEntity: Decodable {
+internal struct TweetEntity: Decodable {
     let id: String
     let userName: String
     let userScreenName: String
@@ -20,7 +20,19 @@ public struct TweetEntity: Decodable {
     let text: String
     let previewImageURL: String?
 
-    public init?(json: JSON) {
+    internal init?(managedObject: TwitterManagedObject)
+    {
+        self.id = managedObject.id!
+        self.favoriteCount = managedObject.follows!.integerValue
+        self.retweetCount = managedObject.retweets!.integerValue
+        self.text = managedObject.text!
+        self.userName = managedObject.userName!
+        self.userScreenName = managedObject.userScreenName!
+        self.createdAt = managedObject.created_at!.twitterDateString
+        self.previewImageURL = managedObject.imageURL
+    }
+
+    internal init?(json: JSON) {
         self.id = ("id_str" <~~ json)!
         self.text = ("text" <~~ json)!
         self.favoriteCount = ("favorite_count" <~~ json)!
@@ -63,14 +75,19 @@ func == (left: TweetViewModel, right: TweetViewModel) -> Bool
 
 class TweetViewModel: NSObject  {
     var entity: TweetEntity
-    unowned var manager: TwitterFeedManager
+    unowned var manager: TwitterNetworkManager
     var previewImage: UIImage?
     var previewImageSignalProducer: SignalProducer<UIImage?, NSError>?
 
-    init(entity: TweetEntity, manager: TwitterFeedManager)
+    init(entity: TweetEntity, manager: TwitterNetworkManager)
     {
         self.entity = entity
         self.manager = manager
+    }
+
+    convenience init(model: TwitterManagedObject, manager: TwitterNetworkManager)
+    {
+        self.init(entity: TweetEntity(managedObject: model)!, manager: manager)
     }
 
     func loadImage()

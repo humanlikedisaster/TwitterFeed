@@ -13,25 +13,60 @@ import CoreData
 
 class TweetFeedViewModel
 {
-    let twitterFeedManager: TwitterFeedManager
+    let twitterNetworkFeed: TwitterNetworkManager
     var tweetFeed: MutableProperty<[TweetViewModel]>
-    var posts = [NSManagedObject]()
     
     init()
     {
-        twitterFeedManager = TwitterFeedManager()
+        twitterNetworkFeed = TwitterNetworkManager()
         tweetFeed = MutableProperty([])
-        twitterFeedManager.tweetFeedViewModel = self
+
+        TwitterAccountManager.sharedInstance.logined.signal.observeNext
+        { (logined) in
+            if logined
+            {
+                self.getLastHomeFeed()
+            }
+        }
     }
 
     func getLastHomeFeed()
     {
-        twitterFeedManager.getLastHomeFeed()
+        twitterNetworkFeed.getLastHomeFeed().on(next:
+        {
+            if let feed = $0
+            {
+                self.updateFromNetworkFeed(feed)
+            }
+        }).start()
     }
 
     func fetchOldHomeFeed()
     {
-        twitterFeedManager.getOldHomeFeed()
+        twitterNetworkFeed.getOldHomeFeed().on(next:
+        {
+            if let feed = $0
+            {
+                self.updateFromNetworkFeed(feed)
+            }
+        }).start()
+    }
+
+    func updateFromNetworkFeed(feed: [[String: AnyObject]])
+    {
+        var tweetArray: [TweetViewModel] = []
+
+        for tweet in feed
+        {
+            let tweet = TweetViewModel(entity: TweetEntity(json: tweet)!, manager: twitterNetworkFeed)
+            tweetArray.append(tweet)
+        }
+
+        syncTweetsModel(tweetArray)
+    }
+
+    func updateFromCoreData()
+    {
     }
 
     func syncTweetsModel(tweets:[TweetViewModel])
@@ -51,14 +86,9 @@ class TweetFeedViewModel
                 tweet.previewImageSignalProducer = tweetArray[tweetArray.indexOf(tweet)!].previewImageSignalProducer
                 tweetArray[tweetArray.indexOf(tweet)!] = tweet
             }
+            CoreDataManager.sharedInstance.syncTweet(tweet)
         }
 
         tweetFeed.value = tweetArray
-    }
-
-    
-    func wakeUpOldPosts()
-    {
-        posts = CoreDataManager.sharedInstance.getAllSavedPost()
     }
 }
