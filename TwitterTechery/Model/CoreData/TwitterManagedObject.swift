@@ -19,7 +19,7 @@ class TwitterManagedObject: NSManagedObject {
 
     func setupWithTweetViewModel(tweetViewModel: TweetViewModel) {
         id = tweetViewModel.entity.id
-        created_at = tweetViewModel.entity.createdAt.twitterDate
+        created_at = tweetViewModel.entity.createdAt
         follows = tweetViewModel.entity.favoriteCount
         retweets = tweetViewModel.entity.retweetCount
         text = tweetViewModel.entity.text

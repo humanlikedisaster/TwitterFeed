@@ -20,7 +20,7 @@ class TweetFeedViewModel
     {
         twitterNetworkFeed = TwitterNetworkManager()
         tweetFeed = MutableProperty([])
-
+        self.updateFromCoreData()
         TwitterAccountManager.sharedInstance.logined.signal.observeNext
         { (logined) in
             if logined
@@ -67,6 +67,15 @@ class TweetFeedViewModel
 
     func updateFromCoreData()
     {
+        var tweetArray: [TweetViewModel] = []
+
+        for managedObject in CoreDataManager.sharedInstance.posts
+        {
+            let tweet = TweetViewModel(model: managedObject, manager: twitterNetworkFeed)
+            tweetArray.append(tweet)
+        }
+
+        syncTweetsModel(tweetArray)
     }
 
     func syncTweetsModel(tweets:[TweetViewModel])
@@ -88,6 +97,7 @@ class TweetFeedViewModel
             }
             CoreDataManager.sharedInstance.syncTweet(tweet)
         }
+        tweetArray = tweetArray.sort { $0.entity.createdAt.compare($1.entity.createdAt) == NSComparisonResult.OrderedDescending }
 
         tweetFeed.value = tweetArray
     }

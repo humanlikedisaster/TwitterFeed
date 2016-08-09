@@ -16,7 +16,7 @@ internal struct TweetEntity: Decodable {
     let userScreenName: String
     let favoriteCount: Int
     let retweetCount: Int
-    let createdAt: String
+    let createdAt: NSDate
     let text: String
     let previewImageURL: String?
 
@@ -28,7 +28,7 @@ internal struct TweetEntity: Decodable {
         self.text = managedObject.text!
         self.userName = managedObject.userName!
         self.userScreenName = managedObject.userScreenName!
-        self.createdAt = managedObject.created_at!.twitterDateString
+        self.createdAt = managedObject.created_at!
         self.previewImageURL = managedObject.imageURL
     }
 
@@ -37,7 +37,10 @@ internal struct TweetEntity: Decodable {
         self.text = ("text" <~~ json)!
         self.favoriteCount = ("favorite_count" <~~ json)!
         self.retweetCount = ("retweet_count" <~~ json)!
-        self.createdAt = ("created_at" <~~ json)!
+
+        guard let createdAtString: String = "created_at" <~~ json
+            else { return nil }
+        self.createdAt = createdAtString.twitterDate
 
         guard let user: JSON = "user" <~~ json,
             entities: JSON = "entities" <~~ json
