@@ -20,7 +20,6 @@ class TweetFeedViewModel
     {
         twitterNetworkFeed = TwitterNetworkManager()
         tweetFeed = MutableProperty([])
-        self.updateFromCoreData()
         TwitterAccountManager.sharedInstance.logined.signal.observeNext
         { (logined) in
             if logined
@@ -34,10 +33,7 @@ class TweetFeedViewModel
     {
         twitterNetworkFeed.getLastHomeFeed().on(next:
         {
-            if let feed = $0
-            {
-                self.updateFromNetworkFeed(feed)
-            }
+            self.updateFromNetworkFeed($0)
         }).start()
     }
 
@@ -45,24 +41,28 @@ class TweetFeedViewModel
     {
         twitterNetworkFeed.getOldHomeFeed().on(next:
         {
-            if let feed = $0
-            {
-                self.updateFromNetworkFeed(feed)
-            }
+            self.updateFromNetworkFeed($0)
         }).start()
     }
 
-    func updateFromNetworkFeed(feed: [[String: AnyObject]])
+    func updateFromNetworkFeed(feed: [[String: AnyObject]]?)
     {
-        var tweetArray: [TweetViewModel] = []
-
-        for tweet in feed
+        if let feedArray = feed
         {
-            let tweet = TweetViewModel(entity: TweetEntity(json: tweet)!, manager: twitterNetworkFeed)
-            tweetArray.append(tweet)
-        }
+            var tweetArray: [TweetViewModel] = []
 
-        syncTweetsModel(tweetArray)
+            for tweet in feedArray
+            {
+                let tweet = TweetViewModel(entity: TweetEntity(json: tweet)!, manager: twitterNetworkFeed)
+                tweetArray.append(tweet)
+            }
+
+            syncTweetsModel(tweetArray)
+        }
+        else
+        {
+            self.updateFromCoreData()
+        }
     }
 
     func updateFromCoreData()
